@@ -1,0 +1,5 @@
+I finished my subsystem introduction project. I fixed the traces and got some practice making a multi layered board. Produced gerber files and did a design check.
+
+I also found more footprints I need and checked for accuracy. The outline for the schematic was made and the analog sensor subsheet and digital sensor subsheet.
+
+Plan on finishing the schematic by adding the analog to digital converter and microcontroller this week.
