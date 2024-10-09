@@ -17,7 +17,8 @@ Continued learning how to use altium and working on the design of my simulation 
 10/8
 I have successfully completed all parts of my Altium subsystem introduction project, including a design rule check with no 
 errors, and generated the necessary Gerber files. I have attached a video to this email  to demo this project to you in order
-to receive full credit. Additionally, I created and finalized the symbols and footprints for the transformer, connector, and 
-diodes. I broke my full design into sections and I have not begun working on the part where I am taking in the ac from the 
+to receive full credit. Additionally, I created and finalized the symbols and footprints for the transformer and connector.
+I broke my full design into sections and I have not begun working on the part where I am taking in the ac from the 
 wall and converting it to dc. I’ve worked on the schematic for AC-DC conversion in Altium and also created a separate schematic
 to simulate the design to verify. Progress of this will be shown in the attached video. 
+Lastly I started a part list and figured out which power cord I will use to connect to the wall adn then wire it to my pcb
