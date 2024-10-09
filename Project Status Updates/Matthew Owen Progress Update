@@ -14,3 +14,10 @@ Went to animal farm with sponsor to see where and how device will be mounted and
 Worked on schematics and footprints for transformer, rectifier, and buck boost on altium. 
 Finished fsr,icd,validation plan, execution plan, and creating midterm presentation.
 Continued learning how to use altium and working on the design of my simulation to verify my design for power subsystem.
+10/8
+I have successfully completed all parts of my Altium subsystem introduction project, including a design rule check with no 
+errors, and generated the necessary Gerber files. I have attached a video to this email  to demo this project to you in order
+to receive full credit. Additionally, I created and finalized the symbols and footprints for the transformer, connector, and 
+diodes. I broke my full design into sections and I have not begun working on the part where I am taking in the ac from the 
+wall and converting it to dc. I’ve worked on the schematic for AC-DC conversion in Altium and also created a separate schematic
+to simulate the design to verify. Progress of this will be shown in the attached video. 
