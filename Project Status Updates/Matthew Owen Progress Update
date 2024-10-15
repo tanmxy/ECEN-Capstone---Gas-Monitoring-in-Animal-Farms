@@ -22,3 +22,5 @@ I broke my full design into sections and I have not begun working on the part wh
 wall and converting it to dc. I’ve worked on the schematic for AC-DC conversion in Altium and also created a separate schematic
 to simulate the design to verify. Progress of this will be shown in the attached video. 
 Lastly I started a part list and figured out which power cord I will use to connect to the wall adn then wire it to my pcb
+10/15
+Continued working on altium deisgn for subsystem and simulation of subsystem to verify it works
