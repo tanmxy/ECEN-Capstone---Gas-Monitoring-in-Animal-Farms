@@ -1,0 +1,4 @@
+Finished majority of my schematic in altium. Specifically the analog to digital converter and microcontroller.
+Added op amps as unity gain buffer between analog sensors and voltage dividers.
+
+Plan to finish schematic and pcb doc this weekend.
