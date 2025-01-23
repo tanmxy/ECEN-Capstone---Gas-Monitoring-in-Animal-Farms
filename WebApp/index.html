@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Setting character encoding to UTF-8 -->
+
+    <meta charset="UTF-8">
+    <!-- Useful for mobile device compatibility -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gas Monitoring System</title>
+    
+    <style>
+        /* Basic page styling */
+        body {
+            font-family: "Times New Roman"; /* Set the font family to Times New Roman for the body */
+            background-color: rgb(83, 2, 2); /* Set background color to match the Aggie theme */
+            color: white; /* Set the font color to white for better visibility */
+            text-align: center; /* Center-align all text on the page */
+            margin-top: 50px; /* Add margin at the top for spacing from the top of the page */
+        }
+    
+        /* Header styling */
+        header {
+            display: flex; /* Use flexbox for layout to align content horizontally */
+            align-items: center; /* Vertically center the header elements */
+            padding: 2px; /* Add minimal padding for spacing */
+            position: fixed; /* Fix the header position so it remains visible on scroll */
+            top: 0; /* Align the header to the top of the viewport */
+            left: 0; /* Align the header to the left of the viewport */
+            width: 100%; /* Make the header span the full width of the viewport */
+            background-color: rgb(60, 2, 2); /* Use a darker shade for the header background */
+        }
+    
+        header img {
+            height: 50px; /* Set the height of the logo image */
+            margin-right: 20px; /* Add space to the right of the image */
+        }
+    
+        /* Navigation links */
+        nav {
+            margin: 100px 0 30px 0; /* Add top and bottom margin to separate from other elements */
+        }
+    
+        nav a {
+            color: white; /* Set the font color for navigation links */
+            text-decoration: none; /* Remove the underline from links */
+            margin: 0 15px; /* Add horizontal spacing between links */
+            font-size: 20px; /* Increase the font size for better readability */
+            padding: 10px; /* Add padding for better clickability */
+            border: 1px solid white; /* Add a white border around links */
+            border-radius: 5px; /* Make the corners of the border rounded */
+        }
+    
+        nav a:hover {
+            background-color: white; /* Change the background color when hovering over links */
+            color: rgb(83, 2, 2); /* Change the text color to match the Aggie theme */
+        }
+    
+        /* Tab content visibility */
+        .tab-content {
+            display: none; /* Hide all tab content by default */
+        }
+    
+        .tab-content.active {
+            display: block; /* Display only the active tab content */
+        }
+    
+        /* Data table container with scroll functionality */
+        #data-table-container {
+            max-height: 400px; /* Set a maximum height for the container */
+            overflow-y: auto; /* Enable vertical scrolling if content exceeds max height */
+            width: 80%; /* Restrict the container width to 80% of the page */
+            margin: 0 auto; /* Center the container horizontally */
+        }
+    
+        /* Table styling */
+        table {
+            margin: 0 auto; /* Center the table horizontally */
+            border-collapse: collapse; /* Merge table borders for a clean look */
+            width: 100%; /* Make the table span the entire width of its container */
+            color: white; /* Set the text color to white for contrast */
+        }
+        /* Table header and cell styling */
+        table, th, td {
+            border: 1px solid white; /* Add a white border to the table, headers, and cells */
+        }
+        /* Table header and cell padding and alignment */
+        th, td {
+            padding: 15px; /* Add padding for better readability */
+            text-align: center; /* Center-align text inside table cells */
+        }
+        
+        th {
+            background-color: rgb(60, 2, 2); /* Set a dark background color for the header row */
+            position: sticky; /* Make the header row stick at the top during scrolling */
+            top: 0; /* Fix the header to the top of the container */
+            z-index: 1; /* Ensure the header is above other content */
+        }
+    
+        /* Responsive images */
+        img {
+            max-width: 100%; /* Ensure images don’t exceed the container width */
+            height: auto; /* Maintain the aspect ratio of images */
+        }
+    
+        /* Last updated text styling */
+        #last-updated {
+            font-size: 0.8em; /* Set the font size to be smaller for this text */
+            color: lightgrey; /* Use light grey color for a subtle appearance */
+            margin-left: 15px; /* Add a slight margin to the left for spacing */
+        }
+    
+        /* Stats section styling */
+        .stats {
+            margin-top: 20px; /* Add margin at the top for spacing */
+            text-align: left; /* Align text to the left for a clean layout */
+            width: 80%; /* Restrict the width to 80% of the page */
+            margin: 0 auto; /* Center the stats section horizontally */
+        }
+    
+        /* Export CSV button styling */
+        #export-csv-btn {
+            margin-left: 20px; /* Add spacing to the left of the button */
+            font-size: 0.8em; /* Set a smaller font size for the button */
+            padding: 5px 10px; /* Add padding for better clickability and design */
+        }
+    </style>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart.js library to create data visualizations -->
+</head>
+<body>
+    <!-- Header Section: Displays the logo and main title of the application -->
+    <header>
+        <img src="images/tamu.png" alt="Company Logo"> <!-- Company logo image -->
+        <h1>Gas Monitoring System</h1> <!-- Main title of the application -->
+    </header>
+
+    <!-- Navigation Section: Links to different parts of the web application -->
+    <nav>
+        <a href="#" class="nav-link" data-tab="welcome">Welcome</a>
+        <a href="#" class="nav-link" data-tab="live-data">Live Data</a>
+        <a href="#" class="nav-link" data-tab="contact">Contact Information</a>
+        <a href="#" class="nav-link" data-tab="location">Location Information</a>
+        <a href="#" class="nav-link" data-tab="visualization">Data Visualization</a>
+    </nav>
+
+    <!-- Welcome Tab Content: Introduction to the gas monitoring system -->
+    <div id="welcome" class="tab-content active">
+        <h1>Welcome to the Gas Monitoring System for Animal Farms</h1>
+        <p>We are a group of 4 undergraduate Electrical Engineering Students at Texas A&M University...</p>
+        <img src="images/farm.png" alt="Farm Image"> <!-- Image of the farm -->
+    </div>
+
+    <!-- Live Data Tab Content: Displays the latest gas data readings and statistics -->
+    <div id="live-data" class="tab-content">
+        <h1>Live Gas Monitoring Data <span id="last-updated"></span><button id="export-csv-btn">Export to CSV</button></h1>
+        
+        <!-- Gas statistics summary for the last 30 minutes -->
+        <div id="gas-stats">
+            <h2>Gas Statistics (Last 30 Minutes)</h2>
+            <div>
+                <h3>Ammonia (ppm)</h3>
+                <p>Average: <span id="ammonia-avg"></span>, Min: <span id="ammonia-min"></span>, Max: <span id="ammonia-max"></span></p>
+                
+                <h3>Carbon Dioxide (ppm)</h3>
+                <p>Average: <span id="co2-avg"></span>, Min: <span id="co2-min"></span>, Max: <span id="co2-max"></span></p>
+                
+                <h3>Methane (ppm)</h3>
+                <p>Average: <span id="methane-avg"></span>, Min: <span id="methane-min"></span>, Max: <span id="methane-max"></span></p>
+                
+                <h3>Nitrous Oxide (ppm)</h3>
+                <p>Average: <span id="n2o-avg"></span>, Min: <span id="n2o-min"></span>, Max: <span id="n2o-max"></span></p>
+                
+                <h3>Hydrogen Sulfide (ppm)</h3>
+                <p>Average: <span id="h2s-avg"></span>, Min: <span id="h2s-min"></span>, Max: <span id="h2s-max"></span></p>
+            </div>
+        </div>
+        
+        <!-- Data table displaying recent gas readings -->
+        <div id="data-table-container">
+            <table>
+                <thead>
+                    <!-- Table row information -->
+                    <tr>
+                        <!-- Table header information-->
+                        <th>ID</th>
+                        <th>Ammonia (ppm)</th>
+                        <th>Carbon Dioxide (ppm)</th>
+                        <th>Methane (ppm)</th>
+                        <th>Nitrous Oxide (ppm)</th>
+                        <th>Hydrogen Sulfide (ppm)</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody id="data-table">
+                    <!-- Data rows will be dynamically added here using JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Contact Information Tab Content: Details for users to reach out -->
+    <div id="contact" class="tab-content">
+        <h1>Contact Information</h1>
+        <p>For any inquiries, please contact us at:...
+        </p>
+        <p>Tanmay Sarkar: tanmaysarkar@tamu.edu - 346-307-0071
+        </p>
+        <p>Joaquin Salas: jsalas2002@tamu.edu - 806-340-9168
+        </p>
+        <p>Blake Schwartzkopf: blaketx02@tamu.edu - 832-494-7108
+        </p>
+        <p>Matthew Owen: mowen@tamu.edu - 505-946-8859
+        </p>
+    </div>
+
+    <!-- Location Information Tab Content: Details of monitoring locations -->
+    <div id="location" class="tab-content">
+        <h1>Location Information</h1>
+        <p>Currently, we have one active monitor in College Station, TX.</p>
+    </div>
+
+    <!-- Data Visualization Tab Content: Graphical representation of gas data -->
+    <div id="visualization" class="tab-content">
+        <h1>Data Visualization</h1>
+
+        <!-- Visualization for Ammonia data -->
+        <div>
+            <canvas id="ammoniaChart" width="400" height="200"></canvas> <!-- Canvas element for Chart.js -->
+            <div id="ammonia-stats" class="stats"></div> <!-- Section to display statistics -->
+        </div>
+
+        <!-- Visualization for Carbon Dioxide data -->
+        <div>
+            <canvas id="co2Chart" width="400" height="200"></canvas> <!-- Canvas element for Chart.js -->
+            <div id="co2-stats" class="stats"></div> <!-- Section to display statistics -->
+        </div>
+
+        <!-- Visualization for Methane data -->
+        <div>
+            <canvas id="methaneChart" width="400" height="200"></canvas> <!-- Canvas element for Chart.js -->
+            <div id="methane-stats" class="stats"></div> <!-- Section to display statistics -->
+        </div>
+
+        <!-- Visualization for Nitrous Oxide data -->
+        <div>
+            <canvas id="nitrousOxideChart" width="400" height="200"></canvas> <!-- Canvas element for Chart.js -->
+            <div id="nitrousOxide-stats" class="stats"></div> <!-- Section to display statistics -->
+        </div>
+
+        <!-- Visualization for Hydrogen Sulfide data -->
+        <div>
+            <canvas id="h2sChart" width="400" height="200"></canvas> <!-- Canvas element for Chart.js -->
+            <div id="h2s-stats" class="stats"></div> <!-- Section to display statistics -->
+        </div>
+    </div>
+
+
+    <script>
+        // Handle tab navigation
+        const navLinks = document.querySelectorAll('.nav-link');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetTab = e.target.getAttribute('data-tab');
+
+                // Hide all tab contents before showing the target tab
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                });
+
+                // Display the target tab by adding the 'active' class
+                document.getElementById(targetTab).classList.add('active');
+
+                // If switching to live data tab, update the data
+                if (targetTab === 'live-data') {
+                    fetchDataAndPopulateTable();
+                }
+
+                // If switching to visualization tab, update the chart
+                if (targetTab === 'visualization') {
+                    fetchDataAndVisualize();
+                }
+            });
+        });
+
+        // Function to fetch live data and populate the table
+        function fetchDataAndPopulateTable() {
+            const dataTable = document.getElementById('data-table');
+            dataTable.innerHTML = ''; // Clear the existing rows before adding new ones
+
+            fetch('http://localhost:5000/get_gas_data')
+                .then(response => response.json())
+                .then(response => {
+                    const data = response.data;
+                    const stats = response.stats;
+
+                    data.forEach(row => {
+                        const newRow = document.createElement('tr');
+
+                        // Check for dangerous values and apply red color if necessary
+                        const dangerousAmmonia = row.ammonia > 25;
+                        const dangerousCO2 = row.carbon_dioxide > 1000;
+                        const dangerousMethane = row.methane > 10;
+                        const dangerousNitrousOxide = row.nitrous_oxide > 1;
+                        const dangerousH2S = row.hydrogen_sulfide > 5;
+
+                        newRow.innerHTML = `
+                            <td>${row.id}</td>
+                            <td style="color: ${dangerousAmmonia ? 'red' : 'white'}">${row.ammonia}</td>
+                            <td style="color: ${dangerousCO2 ? 'red' : 'white'}">${row.carbon_dioxide}</td>
+                            <td style="color: ${dangerousMethane ? 'red' : 'white'}">${row.methane}</td>
+                            <td style="color: ${dangerousNitrousOxide ? 'red' : 'white'}">${row.nitrous_oxide}</td>
+                            <td style="color: ${dangerousH2S ? 'red' : 'white'}">${row.hydrogen_sulfide}</td>
+                            <td>${row.timestamp}</td>
+                        `;
+                        dataTable.appendChild(newRow);
+                    });
+
+                    // Populate the stats for each gas
+                    document.getElementById('ammonia-avg').textContent = stats.ammonia.average;
+                    document.getElementById('ammonia-min').textContent = stats.ammonia.min;
+                    document.getElementById('ammonia-max').textContent = stats.ammonia.max;
+
+                    document.getElementById('co2-avg').textContent = stats.carbon_dioxide.average;
+                    document.getElementById('co2-min').textContent = stats.carbon_dioxide.min;
+                    document.getElementById('co2-max').textContent = stats.carbon_dioxide.max;
+
+                    document.getElementById('methane-avg').textContent = stats.methane.average;
+                    document.getElementById('methane-min').textContent = stats.methane.min;
+                    document.getElementById('methane-max').textContent = stats.methane.max;
+
+                    document.getElementById('n2o-avg').textContent = stats.nitrous_oxide.average;
+                    document.getElementById('n2o-min').textContent = stats.nitrous_oxide.min;
+                    document.getElementById('n2o-max').textContent = stats.nitrous_oxide.max;
+
+                    document.getElementById('h2s-avg').textContent = stats.hydrogen_sulfide.average;
+                    document.getElementById('h2s-min').textContent = stats.hydrogen_sulfide.min;
+                    document.getElementById('h2s-max').textContent = stats.hydrogen_sulfide.max;
+
+                    // Update the "Last Updated" timestamp
+                    const lastUpdated = document.getElementById('last-updated');
+                    const now = new Date();
+                    lastUpdated.textContent = `Last Updated: ${now.toLocaleString()}`;
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        // Function to fetch live data and visualize it using Chart.js
+       // Function to fetch data from the server and visualize it using Chart.js
+function fetchDataAndVisualize() {
+    // Fetch data from the backend API
+    fetch('http://localhost:5000/get_gas_data')
+        .then(response => response.json()) // Parse the response as JSON
+        .then(response => {
+            // Extract data from the API response
+            const data = response.data;
+            const labels = data.map(row => row.timestamp); // Extract timestamps for the x-axis labels
+            const ammoniaData = data.map(row => row.ammonia); // Extract ammonia values
+            const co2Data = data.map(row => row.carbon_dioxide); // Extract CO2 values
+            const methaneData = data.map(row => row.methane); // Extract methane values
+            const nitrousOxideData = data.map(row => row.nitrous_oxide); // Extract nitrous oxide values
+            const h2sData = data.map(row => row.hydrogen_sulfide); // Extract hydrogen sulfide values
+
+            // Render Ammonia Chart
+            const ammoniaCtx = document.getElementById('ammoniaChart').getContext('2d');
+            new Chart(ammoniaCtx, {
+                type: 'line', // Chart type is a line chart
+                data: {
+                    labels: labels, // Timestamps as labels for the x-axis
+                    datasets: [{
+                        label: 'Ammonia (ppm)', // Chart label
+                        data: ammoniaData, // Ammonia data points
+                        borderColor: ammoniaData.map(value => value > 25 ? 'red' : 'rgba(255, 99, 132, 1)'), // Conditional coloring
+                        borderWidth: 2, // Line width
+                        fill: false // No area under the line is filled
+                    }]
+                },
+                options: {
+                    responsive: true, // Makes the chart responsive
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Timestamp' // Label for the x-axis
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Ammonia Concentration (ppm)' // Label for the y-axis
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Render Carbon Dioxide Chart
+            const co2Ctx = document.getElementById('co2Chart').getContext('2d');
+            new Chart(co2Ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Carbon Dioxide (ppm)',
+                        data: co2Data,
+                        borderColor: co2Data.map(value => value > 1000 ? 'red' : 'rgba(54, 162, 235, 1)'),
+                        borderWidth: 2,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Timestamp'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Carbon Dioxide Concentration (ppm)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Render Methane Chart
+            const methaneCtx = document.getElementById('methaneChart').getContext('2d');
+            new Chart(methaneCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Methane (ppm)',
+                        data: methaneData,
+                        borderColor: methaneData.map(value => value > 10 ? 'red' : 'rgba(75, 192, 192, 1)'),
+                        borderWidth: 2,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Timestamp'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Methane Concentration (ppm)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Render Nitrous Oxide Chart
+            const nitrousOxideCtx = document.getElementById('nitrousOxideChart').getContext('2d');
+            new Chart(nitrousOxideCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Nitrous Oxide (ppm)',
+                        data: nitrousOxideData,
+                        borderColor: nitrousOxideData.map(value => value > 1 ? 'red' : 'rgba(153, 102, 255, 1)'),
+                        borderWidth: 2,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Timestamp'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Nitrous Oxide Concentration (ppm)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Render Hydrogen Sulfide Chart
+            const h2sCtx = document.getElementById('h2sChart').getContext('2d');
+            new Chart(h2sCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Hydrogen Sulfide (ppm)',
+                        data: h2sData,
+                        borderColor: h2sData.map(value => value > 5 ? 'red' : 'rgba(255, 159, 64, 1)'),
+                        borderWidth: 2,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Timestamp'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Hydrogen Sulfide Concentration (ppm)'
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => console.error('Error fetching data:', error)); // Log any errors
+}
+
+// Auto-refresh every 5 seconds to fetch the latest data
+setInterval(fetchDataAndPopulateTable, 5000);
+
+// Fetch data and populate the table when the page loads
+document.addEventListener('DOMContentLoaded', fetchDataAndPopulateTable);
+
+// Handle the CSV export button click
+document.getElementById('export-csv-btn').addEventListener('click', () => {
+    // Redirect to the backend route for downloading the CSV
+    window.location.href = 'http://localhost:5000/export_csv';
+});
+
+    </script>
+</body>
+</html>
