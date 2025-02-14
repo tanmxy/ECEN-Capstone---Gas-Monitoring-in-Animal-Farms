@@ -1,60 +1,96 @@
-// Commented out code is for future Sensor Integrations
+// Standard C Libraries
+#include <stdio.h>       // printf commands
+#include <string.h>      // String handling
+#include <math.h>        // Math operations (pow, etc.)
+#include <inttypes.h>    // PRIX32 format specifier
 
-#include <stdio.h> //for basic printf commands
-#include <string.h> //for handling strings
+// FreeRTOS Libraries
+#include "freertos/FreeRTOS.h"  
+#include "freertos/task.h"     
+#include "freertos/queue.h"    
+#include "freertos/semphr.h"  
 
-#include "freertos/FreeRTOS.h" //for delay,mutexs,semphrs rtos operations
-#include "freertos/task.h"
+// ESP System & Networking
+#include "esp_system.h"   // esp_init functions, esp_err_t
+#include "esp_wifi.h"     // Wi-Fi operations
+#include "esp_event.h"    // Wi-Fi event handling
+#include "esp_log.h"      // Logging
+#include "esp_mac.h"      // MAC address functions
+#include "nvs_flash.h"    // Non-volatile storage
 
-#include "esp_wifi.h" //esp_wifi_init functions and wifi operations
-#include "esp_log.h" //for showing logs
-#include "esp_event.h" //for wifi event
-#include "esp_system.h" //esp_init funtions esp_err_t 
-#include "esp_mac.h"  // Include esp_mac.h for esp_read_mac()
-
-#include "nvs_flash.h" //non volatile storage
-#include "esp_system.h"
-#include "wifi.h"
-
-#include "freertos/semphr.h"
+// AWS IoT & MQTT Libraries
 #include "network_transport.h"
-#include "sdkconfig.h"
-#include "freertos/queue.h"
-
 #include "core_mqtt.h"
 #include "core_mqtt_serializer.h"
 #include "core_mqtt_state.h"
 #include "transport_interface.h"
 #include "backoff_algorithm.h"
-#include "clock.h"  // Ensure clock utilities are included
+#include "clock.h"        // Ensure clock utilities are included
 
-// I2C Libraries
-#include "driver/i2c.h" // I2C communication
-#include "esp_err.h"
-#include "hdc1000.h"
-#include "scd4x.h"    
-#include "i2cdev.h"    // From the i2cdev component
+// I2C Libraries (Sensor Communication)
+// #include "driver/i2c.h"   // I2C communication
+#include "esp_err.h"      // ESP error handling
+#include "hdc1000.h"      // HDC1000 Temperature & Humidity Sensor
+#include "scd4x.h"        // SCD4X CO2 Sensor
+#include "i2cdev.h"       // I2C device handling
 #include "esp_idf_lib_helpers.h" // (if needed by the drivers)
 
+// SPI & GPIO (Sensor Communication)
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
-#include <math.h>  // Include this for pow function
-#include <inttypes.h>  // Include this for PRIX32 format specifier
 
-// #define WIFI_MAXIMUM_RETRY          10
+// Project-Specific Files
+#include "wifi.h"         // Wi-Fi functionality
+#include "sdkconfig.h"    // ESP-IDF Project Configuration
+
+#include "freertos/semphr.h"
+
+static bool hdc_updated = false;
+static bool scd_updated = false;
+static SemaphoreHandle_t sensor_mutex;
+
+#define APP_CPU_NUM PRO_CPU_NUM
+// #define I2C_MASTER_SDA GPIO_NUM_6
+// #define I2C_MASTER_SCL GPIO_NUM_4 // For esp32-s3
+#define I2C_MASTER_SDA GPIO_NUM_21
+#define I2C_MASTER_SCL GPIO_NUM_22
+#define I2C_MASTER_NUM I2C_NUM_0
+#define I2C_MASTER_FREQ_HZ 100000
+
+// /* Pin Definitions */
+// #define AD7718_MOSI    GPIO_NUM_21  // MOSI
+// #define AD7718_MISO    GPIO_NUM_19  // MISO
+// #define AD7718_CLK     GPIO_NUM_18  // CLK
+// #define AD7718_CS      GPIO_NUM_5   // Chip Select
+// #define AD7718_RESET   GPIO_NUM_7   // Reset pin
+// #define AD7718_RDY     GPIO_NUM_9   // Data Ready pin
+
+// // AD7718 Register Addresses
+// #define AD7718_COMM_REG   0x00
+// #define AD7718_SETUP_REG  0x01
+// #define AD7718_CLOCK_REG  0x02
+// #define AD7718_DATA_REG   0x44
+
+// /* Command Definitions */
+// #define AD7718_RD 0x40  // Read command base (0x40 | register)
+// #define AD7718_WR 0x00  // Write command base
+
+// spi_device_handle_t ad7718_spi = NULL; // define SPI device handle 
 
 static const char* TAG = "gasmonitor";
+
 const char* topic = "sensor/reading";
 const char* thing_name = "GasMonitor_ESP32";
 const char* user_name = "user";
 const char* endpoint = "a2etjzbib4sdus-ats.iot.us-east-2.amazonaws.com";
 static char mqtt_string[128];  // Persistent memory for MQTT payload
 float sensor_readings[5] = { 0 };
-float temp_hdc1000;
-float humidity_hdc1000;
-uint16_t co2_scd4x;
-float temp_scd4x;
-float humidity_scd4x;
+float temp_hdc1000 = 0;
+float humidity_hdc1000 = 0;
+uint16_t co2_scd4x = 0;
+float temp_scd4x = 0;
+float humidity_scd4x = 0;
+
 
 NetworkContext_t network_context; // cert + endpoint
 TransportInterface_t transport; // func for send + recv
@@ -69,6 +105,7 @@ QueueHandle_t mqtt_aws_queue;
 
 bool ses_present = 0;
 bool connected_to_aws = false;
+bool data_ready = false;
 uint8_t buffer[1024]; //for sensing data
 
 extern const char root_cert_auth_start[] asm("_binary_root_cert_auth_crt_start");
@@ -78,7 +115,146 @@ extern const char client_cert_end[] asm("_binary_client_crt_end");
 extern const char client_key_start[] asm("_binary_client_key_start");
 extern const char client_key_end[] asm("_binary_client_key_end");
 
-/*******************************************************************/
+// ******************************* HDC1080 & SCD41 *******************************
+
+void queue_mqtt_readings(float temp_hdc1000, float humidity_hdc1000, float temp_scd4x, float humidity_scd4x, uint16_t co2_scd4x)
+{
+    static float latest_temp_hdc1000, latest_humidity_hdc1000;
+    static float latest_temp_scd4x, latest_humidity_scd4x;
+    static uint16_t latest_co2_scd4x;
+
+    // Lock before modifying shared flags
+    xSemaphoreTake(sensor_mutex, portMAX_DELAY);
+
+    // Determine which sensor sent the data
+    if (temp_hdc1000 >= 0 && humidity_hdc1000 >= 0)
+    {
+        latest_temp_hdc1000 = temp_hdc1000;
+        latest_humidity_hdc1000 = humidity_hdc1000;
+        hdc_updated = true;  // Mark HDC1080 as updated
+    }
+    if (temp_scd4x >= 0 && humidity_scd4x >= 0 && co2_scd4x > 0)
+    {
+        latest_temp_scd4x = temp_scd4x;
+        latest_humidity_scd4x = humidity_scd4x;
+        latest_co2_scd4x = co2_scd4x;
+        scd_updated = true;  // Mark SCD41 as updated
+    }
+
+    // If both sensors have updated, publish data
+    if (hdc_updated && scd_updated)
+    {
+        sensor_readings[0] = latest_temp_hdc1000;
+        sensor_readings[1] = latest_humidity_hdc1000;
+        sensor_readings[2] = latest_temp_scd4x;
+        sensor_readings[3] = latest_humidity_scd4x;
+        sensor_readings[4] = latest_co2_scd4x;
+
+        // Send to the queue only once
+        xQueueSend(sensor_queue, sensor_readings, 100);
+
+        // Reset flags for the next reading cycle
+        hdc_updated = false;
+        scd_updated = false;
+    }
+
+    // Release the lock
+    xSemaphoreGive(sensor_mutex);
+}
+
+void hdc1080_task(void *pvParameters)
+{
+    vTaskDelay(pdMS_TO_TICKS(5500));  // Allow time for sensors to power up
+    hdc1000_t dev = { 0 };
+
+    ESP_ERROR_CHECK(hdc1000_init_desc(&dev, HDC1000_I2C_ADDRESS_0, I2C_MASTER_NUM, I2C_MASTER_SDA, I2C_MASTER_SCL));
+    ESP_ERROR_CHECK(hdc1000_init(&dev));
+
+    uint32_t serial[2];
+    uint16_t manuf_id, dev_id;
+
+    ESP_ERROR_CHECK(hdc1000_get_serial(&dev, (uint64_t *)serial));
+    ESP_ERROR_CHECK(hdc1000_get_manufacturer_id(&dev, &manuf_id));
+    ESP_ERROR_CHECK(hdc1000_get_device_id(&dev, &dev_id));
+    ESP_LOGI("HDC1080", "Sensor initialized!");
+
+    ESP_LOGI("HDC1080", "Manufacturer ID: 0x%04x, Device ID: 0x%04x, Serial: 0x%08" PRIx32 "%08" PRIx32,
+            manuf_id, dev_id, serial[0], serial[1]);
+
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    while (1)
+    {
+        esp_err_t res = hdc1000_measure(&dev, &temp_hdc1000, &humidity_hdc1000);
+        if (res == ESP_OK)
+        {
+            ESP_LOGI("HDC1080", "Temperature: %.2f°C, Humidity: %.2f%%", temp_hdc1000, humidity_hdc1000);
+        }
+        else
+        {
+            ESP_LOGE("HDC1080", "Error reading data: %s", esp_err_to_name(res));
+        }
+        queue_mqtt_readings(temp_hdc1000, humidity_hdc1000, temp_scd4x, humidity_scd4x, co2_scd4x);
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+
+void scd41_task(void *pvParameters)
+{
+    vTaskDelay(pdMS_TO_TICKS(5000));  // Allow time for sensors to power up
+    i2c_dev_t dev = { 0 };
+    
+    // Initialize the sensor descriptor
+    ESP_ERROR_CHECK(scd4x_init_desc(&dev, 0, I2C_MASTER_SDA, I2C_MASTER_SCL));
+
+    // ESP_ERROR_CHECK(scd4x_wake_up(&dev));
+    ESP_ERROR_CHECK(scd4x_stop_periodic_measurement(&dev));
+    ESP_ERROR_CHECK(scd4x_reinit(&dev));
+    ESP_LOGI("SCD41", "Sensor initialized!");
+
+    // Retrieve and log the serial number
+    uint16_t serial[3];
+    ESP_ERROR_CHECK(scd4x_get_serial_number(&dev, serial, serial + 1, serial + 2));
+    ESP_LOGI("SCD41", "Sensor serial number: 0x%04x%04x%04x", serial[0], serial[1], serial[2]);
+
+    // Start periodic measurements
+    ESP_ERROR_CHECK(scd4x_start_periodic_measurement(&dev));
+
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    while (1)
+    {
+        vTaskDelay(pdMS_TO_TICKS(5000)); // Delay to match the sensor's update rate
+
+        // Check if new data is available
+        esp_err_t status = scd4x_get_data_ready_status(&dev, &data_ready);
+        if (status != ESP_OK)
+        {
+            ESP_LOGE("SCD41", "Error checking data ready status: %s", esp_err_to_name(status));
+            continue;
+        }
+        if (!data_ready)
+        {
+            ESP_LOGW("SCD41", "Data not ready (data_ready = %d), skipping measurement", data_ready);
+            continue;
+        }
+
+        esp_err_t res = scd4x_read_measurement(&dev, &co2_scd4x, &temp_scd4x, &humidity_scd4x);
+        if (res != ESP_OK)
+        {
+            ESP_LOGE("SCD41", "Error reading results: %s", esp_err_to_name(res));
+            continue;
+        }
+
+        if (co2_scd4x == 0) // Check for invalid sample
+        {
+            ESP_LOGW("SCD41", "Invalid sample detected, skipping...");
+            continue;
+        }
+        ESP_LOGI("SCD41", "CO2: %u ppm, Temperature: %.2f°C, Humidity: %.2f%%", co2_scd4x, temp_scd4x, humidity_scd4x);
+        queue_mqtt_readings(temp_hdc1000, humidity_hdc1000, temp_scd4x, humidity_scd4x, co2_scd4x);
+    }
+}
+// ******************************* HDC1080 & SCD41 *******************************
+
 MQTTStatus_t mqtt_subscribe_to(MQTTContext_t* mqtt_context,const char* topic,MQTTQoS_t qos_level)
 {
     uint16_t pkt = MQTT_GetPacketId(mqtt_context);
@@ -88,128 +264,6 @@ MQTTStatus_t mqtt_subscribe_to(MQTTContext_t* mqtt_context,const char* topic,MQT
     subscribe_topic.topicFilterLength = strlen(topic);
     return MQTT_Subscribe(mqtt_context,&subscribe_topic,1,pkt);
 }
-
-// ******************************* HDC1080 & SCD41 *******************************
-
-// #define APP_CPU_NUM PRO_CPU_NUM
-// #define I2C_MASTER_SDA GPIO_NUM_6
-// #define I2C_MASTER_SCL GPIO_NUM_4 // For esp32-s3
-// // #define I2C_MASTER_SDA GPIO_NUM_21
-// // #define I2C_MASTER_SCL GPIO_NUM_22
-// #define I2C_MASTER_NUM I2C_NUM_0
-// #define I2C_MASTER_FREQ_HZ 100000
-
-// void hdc1080_task(void *pvParameters)
-// {
-//     vTaskDelay(pdMS_TO_TICKS(5000));  // Allow time for sensors to power up
-//     hdc1000_t dev = { 0 };
-
-//     ESP_LOGI("I2C", "Initializing HDC1080...");
-//     ESP_ERROR_CHECK(hdc1000_init_desc(&dev, HDC1000_I2C_ADDRESS_0, I2C_MASTER_NUM, I2C_MASTER_SDA, I2C_MASTER_SCL));
-//     ESP_ERROR_CHECK(hdc1000_init(&dev));
-
-//     uint32_t serial[2];
-//     uint16_t manuf_id, dev_id;
-
-//     ESP_ERROR_CHECK(hdc1000_get_serial(&dev, (uint64_t *)serial));
-//     ESP_ERROR_CHECK(hdc1000_get_manufacturer_id(&dev, &manuf_id));
-//     ESP_ERROR_CHECK(hdc1000_get_device_id(&dev, &dev_id));
-
-//     ESP_LOGI("I2C", "HDC1000, Manufacturer ID: 0x%04x, Device ID: 0x%04x, Serial: 0x%08" PRIx32 "%08" PRIx32,
-//             manuf_id, dev_id, serial[0], serial[1]);
-
-//     temp_hdc1000 = 0;
-//     humidity_hdc1000 = 0;
-
-//     while (1)
-//     {
-//         esp_err_t res = hdc1000_measure(&dev, &temp_hdc1000, &humidity_hdc1000);
-//         if (res == ESP_OK)
-//         {
-//             ESP_LOGI("I2C", "Temperature: %.2f°C, Humidity: %.2f%%", temp_hdc1000, humidity_hdc1000);
-//         }
-//         else
-//         {
-//             ESP_LOGE("I2C", "Error reading data: %s", esp_err_to_name(res));
-//         }
-
-//         // Send readings to aws
-//         sensor_readings[0] = temp_hdc1000;
-//         sensor_readings[1] = humidity_hdc1000;
-//         xQueueSend(sensor_queue, sensor_readings, 100);
-//         vTaskDelay(pdMS_TO_TICKS(5000));
-//     }
-// }
-
-// void scd41_task(void *pvParameters)
-// {
-//     vTaskDelay(pdMS_TO_TICKS(5000));  // Allow time for sensors to power up
-
-//     i2c_dev_t dev = { 0 };
-
-//     ESP_LOGI("I2C", "Initializing SCD41...");
-    
-//     // Initialize the sensor descriptor
-//     ESP_ERROR_CHECK(scd4x_init_desc(&dev, 0, I2C_MASTER_SDA, I2C_MASTER_SCL));
-
-//     ESP_LOGI("I2C", "Initializing sensor...");
-//     // ESP_ERROR_CHECK(scd4x_wake_up(&dev));
-//     ESP_ERROR_CHECK(scd4x_stop_periodic_measurement(&dev));
-//     ESP_ERROR_CHECK(scd4x_reinit(&dev));
-//     ESP_LOGI("I2C", "Sensor initialized");
-
-//     // Retrieve and log the serial number
-//     uint16_t serial[3];
-//     ESP_ERROR_CHECK(scd4x_get_serial_number(&dev, serial, serial + 1, serial + 2));
-//     ESP_LOGI("I2C", "Sensor serial number: 0x%04x%04x%04x", serial[0], serial[1], serial[2]);
-
-//     // Start periodic measurements
-//     ESP_ERROR_CHECK(scd4x_start_periodic_measurement(&dev));
-//     ESP_LOGI("I2C", "Periodic measurements started");
-
-//     uint16_t co2_scd4x = 0;
-//     temp_scd4x = 0;
-//     humidity_scd4x = 0;
-//     bool data_ready = false;
-
-//     while (1)
-//     {
-//         vTaskDelay(pdMS_TO_TICKS(5000)); // Delay to match the sensor's update rate
-
-//         // Check if new data is available
-//         esp_err_t status = scd4x_get_data_ready_status(&dev, &data_ready);
-//         if (status != ESP_OK)
-//         {
-//             ESP_LOGE("I2C", "Error checking data ready status: %s", esp_err_to_name(status));
-//             continue;
-//         }
-//         if (!data_ready)
-//         {
-//             ESP_LOGW("I2C", "Data not ready (data_ready = %d), skipping measurement", data_ready);
-//             continue;
-//         }
-
-//         esp_err_t res = scd4x_read_measurement(&dev, &co2_scd4x, &temp_scd4x, &humidity_scd4x);
-//         if (res != ESP_OK)
-//         {
-//             ESP_LOGE("I2C", "Error reading results: %s", esp_err_to_name(res));
-//             continue;
-//         }
-
-//         if (co2_scd4x == 0) // Check for invalid sample
-//         {
-//             ESP_LOGW("I2C", "Invalid sample detected, skipping...");
-//             continue;
-//         }
-//         ESP_LOGI("I2C", "CO2: %u ppm, Temperature: %.2f°C, Humidity: %.2f%%", co2_scd4x, temp_scd4x, humidity_scd4x);
-
-//         sensor_readings[2] = temp_scd4x;
-//         sensor_readings[3] = humidity_scd4x;
-//         sensor_readings[4] = co2_scd4x;
-//         xQueueSend(sensor_queue, sensor_readings, 100);
-//     }
-// }
-// ******************************* HDC1080 & SCD41 *******************************
 
 static void mqtt_event_cb(MQTTContext_t* pMQTTContext,MQTTPacketInfo_t* pPacketInfo, MQTTDeserializedInfo_t* pDeserializedInfo)
 {
@@ -228,9 +282,9 @@ static void mqtt_event_cb(MQTTContext_t* pMQTTContext,MQTTPacketInfo_t* pPacketI
         ESP_LOGI(TAG,"MQTT_PACKET_TYPE_CONNACK");
         break;
         break;
-    default:break;
+    default:
+    break;
    }
-
 }
 
 void mqtt_process_task(void* arg)
@@ -276,7 +330,7 @@ void set_wifi_status(bool connected)
 
 void user_main_task(void* arg)
 {
-    ESP_LOGI(TAG,"user_main_task started");
+    ESP_LOGI(TAG,"main_task started");
     while(1)
     {
         vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -316,25 +370,6 @@ void aws_init(void)
 }
 
 // ******************************* AD7718 *******************************
-// /* Pin Definitions */
-// #define AD7718_MOSI    GPIO_NUM_21  // MOSI
-// #define AD7718_MISO    GPIO_NUM_19  // MISO
-// #define AD7718_CLK     GPIO_NUM_18  // CLK
-// #define AD7718_CS      GPIO_NUM_5   // Chip Select
-// #define AD7718_RESET   GPIO_NUM_7   // Reset pin
-// #define AD7718_RDY     GPIO_NUM_9   // Data Ready pin
-
-// // AD7718 Register Addresses
-// #define AD7718_COMM_REG   0x00
-// #define AD7718_SETUP_REG  0x01
-// #define AD7718_CLOCK_REG  0x02
-// #define AD7718_DATA_REG   0x44
-
-// /* Command Definitions */
-// #define AD7718_RD 0x40  // Read command base (0x40 | register)
-// #define AD7718_WR 0x00  // Write command base
-
-// spi_device_handle_t ad7718_spi = NULL; // define SPI device handle 
 
 // // Writes one byte to the specified register.
 // void ad7718_write(uint8_t address, uint8_t data) 
@@ -352,7 +387,6 @@ void aws_init(void)
 // // Reads 3 bytes (24-bit value) from a specified register and returns a 24-bit value.
 // uint32_t ad7718_read(uint8_t address)
 // {
-
 //     // Explanation
 //     // Single Transaction: The entire 32‑bit transfer happens with CS held low.
 //     // This meets the datasheet’s requirement that once the communications register is written
@@ -374,42 +408,7 @@ void aws_init(void)
 //     // Now the first recieved byte is dummy, the next 3 bytes form the ADC data. 
 //     uint32_t adc_value = ((uint32_t)rx_buffer[1] << 16) | ((uint32_t)rx_buffer[2] << 8) | rx_buffer[3];
 
-//     // This code is completing the read in 2 transactions.
-//     // uint8_t tx_data = address | 0x40;  // Set up read command by ORing address with '0x40'
-//     // uint8_t rx_data[3] = {0}; // Buffer to store received data (3 bytes)
-
-//     // // First transaction - send the read command
-//     // spi_transaction_t trans = {
-//     //     .length = 8,  // Send 1 byte (8-bit register address)
-//     //     .tx_buffer = &tx_data, // Pointer to the transmit buffer
-//     //     .flags = SPI_TRANS_USE_RXDATA, // Enable RX buffer usage
-//     // };
-
-//     // gpio_set_level(AD7718_CS, 0);
-//     // ret = spi_device_transmit(ad7718_spi, &trans); // send read command
-//     // gpio_set_level(AD7718_CS, 1);
-
-//     // assert(ret == ESP_OK); // Stop excecution if transaction fails
-
-//     // vTaskDelay(pdMS_TO_TICKS(1)); // Small delay before reading data
-
-//     // // Second transaction - read 3 bytes from AD7718
-//     // trans.length = 24;  // Read 3 bytes (24-bit ADC data)
-//     // trans.tx_buffer = NULL; // No sending data in this transaction
-//     // trans.rx_buffer = rx_data; // Store recieved data in rx_data buffer
-//     // trans.flags = 0;
-
-//     // gpio_set_level(AD7718_CS, 0);
-//     // ret = spi_device_transmit(ad7718_spi, &trans); // Read the ADC conversion result
-//     // gpio_set_level(AD7718_CS, 1);
-//     // assert(ret == ESP_OK); // Stop excecution if transaction fails
-
-//     // // Convert the bytes into a single 24-bit value
-//     // uint32_t adc_value = ((uint32_t)rx_data[0] << 16) | ((uint32_t)rx_data[1] << 8) | rx_data[2];
-
-//     // // **LOG OUTPUT**
-//     // ESP_LOGI("AD7718", "Raw ADC Data: 0x%08", adc_value);
-//     ESP_LOGI("AD7718", "ADC Decimal Value: %lu", adc_value);
+//     ESP_LOGI("AD7718", "Raw ADC Data: %lu", adc_value);
 
 //     return adc_value;
 // }
@@ -456,15 +455,6 @@ void aws_init(void)
 //     assert(ret == ESP_OK); // Stop if doesnt work
 // }
 
-// // // Converts the raw ADC code into a sensor value using the provided formula.
-// // float ad7718_convert(int32_t adc_code)
-// // {
-// //     float adc_voltage = 2 * ((((float)adc_code / pow(2, 23)) - 1) * 2.5 + 0.0278177268);
-// //     ESP_LOGI(TAG, "ADC Value: %lu", adc_voltage);
-
-// //     return adc_voltage;
-// // }
-
 // void ad7718_task(void *pvParameters)
 // {
 //     // Configure GPIO
@@ -483,15 +473,8 @@ void aws_init(void)
 //     ad7718_write(0x03, 0x17); // Set ADC filter
 
 //     ESP_LOGI("AD7718", "Configuring input channels...");
-//     // for (int channel = 0; channel < 5; channel++) 
-//     // {
-//         // If we expect a unipolar input, change 0x07 to 0x0F
-//         // uint8_t reg_value = 0x07 | (channel << 4); // Issue may be here
-//         // uint8_t reg_value = 0x07 | (channel << 4); // Adjust for psuedo-differential or fully-differential input
-//         // ESP_LOGI("AD7718", "Writing 0x%02X to Control Register (Channel %d)", reg_value, channel);
-//         // ad7718_write(0x02, reg_value); // Write to ADC Control Register
-//         ad7718_write(0x02, 0x07);
-//     // }
+
+//     ad7718_write(0x02, 0x07);
 
 //     // Main loop to read ADC values
 //     while(1) {
@@ -518,11 +501,7 @@ void aws_init(void)
 
 // Main application entry point
 void app_main() {
-
     esp_err_t ret;
-
-    ESP_LOGI("I2C", "Initializing I2C driver...");
-    ESP_ERROR_CHECK(i2cdev_init());
 
     // Initialize Non-Volatile Storage for esp32
     ret = nvs_flash_init();
@@ -532,47 +511,60 @@ void app_main() {
     }
     ESP_ERROR_CHECK(ret);
 
+    // I2C Driver
+    ESP_ERROR_CHECK(i2cdev_init());
+    vTaskDelay(pdMS_TO_TICKS(100));
+    ESP_LOGI(TAG, "I2C driver initialized!");
+
+    sensor_mutex = xSemaphoreCreateMutex();
+    if (sensor_mutex == NULL) {
+        ESP_LOGE(TAG, "Failed to create sensor mutex!");
+        return;
+    }
+
     // Create queues for MQTT & sensor data
     mqtt_aws_queue = xQueueCreate(10, sizeof(uint32_t));
-    sensor_queue = xQueueCreate(5, sizeof(float[2])); // Only stores temp & humidity
+    // sensor_queue = xQueueCreate(5, sizeof(float[2])); // Only stores temp & humidity
+    sensor_queue = xQueueCreate(5, sizeof(float[5]));
+    if (!mqtt_aws_queue || !sensor_queue) {
+        ESP_LOGE(TAG, "Queue creation failed! System out of memory.");
+        return; // Prevent execution if queues failed
+    }
 
     // Initialize Wi-Fi station mode
     wifi_init();
-    if (wifi_connect() == ESP_OK)
-    {
-        ESP_LOGI(TAG, "Wi-Fi connection successful!");
-    } else {
-        ESP_LOGE(TAG, "Failed to connect to Wi-Fi after 10 tries.");
+    if (wifi_connect() != ESP_OK) {
+        ESP_LOGE(TAG, "Wi-Fi not available. Stopping program.");
+        return;
     }
+    vTaskDelay(pdMS_TO_TICKS(500));
 
-    // Initialize AWS IoT MQTT Connection
+    // Perform TLS Handshake
     aws_init();
     int tlsErr = xTlsConnect(&network_context); // TLS handshake
     if (tlsErr != 0)
     {
         ESP_LOGE(TAG, "TLS connection failed with error: %d", tlsErr);
-    } else {
-        ESP_LOGI(TAG, "TLS connection successful!");
+        return;
     }
-    int mqttErr = MQTT_Connect(&mqtt_context, &connect_info, NULL, 1000, &ses_present); // Connect to MQTT Broker
+    ESP_LOGI(TAG, "TLS connection successful!");
+
+    // Connect to MQTT Broker
+    int mqttErr = MQTT_Connect(&mqtt_context, &connect_info, NULL, 5000, &ses_present);
     if (mqttErr != MQTTSuccess)
     {
         ESP_LOGE(TAG, "MQTT connection failed with error: %d", mqttErr);
-    } else {
-        ESP_LOGI(TAG, "MQTT connection successful!");
+        return;
     }
+    ESP_LOGI(TAG, "MQTT connection successful!");
 
-    // // Start sensor task (reads data and sends to MQTT)
     // xTaskCreatePinnedToCore(hdc1080_task, "hdc1080_task", configMINIMAL_STACK_SIZE * 8, NULL, 5, NULL, APP_CPU_NUM);
-
-    // // // Start sensor task (reads data and sends to MQTT)
+    xTaskCreatePinnedToCore(hdc1080_task, "hdc1080_task", configMINIMAL_STACK_SIZE * 8, NULL, 5, NULL, 1);
+    vTaskDelay(pdMS_TO_TICKS(500));
     // xTaskCreatePinnedToCore(scd41_task, "scd41_task", configMINIMAL_STACK_SIZE * 8, NULL, 5, NULL, APP_CPU_NUM);
-
-    // // Start the AD7718 SPI sensor task.
-    // xTaskCreate(ad7718_task, "ad7718_task", 4096, NULL, 10, NULL);
-
-    // Start MQTT processing task (Handles connection & publishing)
-    xTaskCreate(mqtt_process_task, "mqtt_process_task", 4096, NULL, 9, &mqtt_task_handle);
-
-    ESP_LOGI(TAG, "Application successfully started.");
+    xTaskCreatePinnedToCore(scd41_task, "scd41_task", configMINIMAL_STACK_SIZE * 8, NULL, 5, NULL, 1);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    // xTaskCreatePinnedToCore(ad7718_task, "ad7718_task", 4096, NULL, 10, NULL, 1);
+    // vTaskDelay(pdMS_TO_TICKS(500));
+    xTaskCreatePinnedToCore(mqtt_process_task, "mqtt_process_task", 4096, NULL, 9, &mqtt_task_handle, 1);
 }
