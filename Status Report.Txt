@@ -1,0 +1,12 @@
+Output: NC Drill Files
+Type  : NC Drill
+From  : Project [ACtoDCConverterForPowerSupply.PrjPcb]
+   Generated File[SubSystemDesign.TXT]
+   Generated File[SubSystemDesign.LDP]
+   Generated File[SubSystemDesign.DRR]
+
+
+Files Generated   : 3
+Documents Printed : 0
+
+Finished Output Generation At 3:40:49 PM On 11/5/2024
