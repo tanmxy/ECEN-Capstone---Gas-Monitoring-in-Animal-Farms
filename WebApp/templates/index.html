@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gas Monitoring System</title>
+
+    <style>
+        body {
+            font-family: "Times New Roman", serif;
+            background-color: rgb(83, 2, 2);
+            color: white;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            padding: 2px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgb(60, 2, 2);
+        }
+
+        header img {
+            height: 50px;
+            margin-right: 20px;
+        }
+
+        nav {
+            margin: 100px 0 30px 0;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 20px;
+            padding: 10px;
+            border: 1px solid white;
+            border-radius: 5px;
+        }
+
+        nav a:hover {
+            background-color: white;
+            color: rgb(83, 2, 2);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        #data-table-container {
+            max-height: 400px;
+            overflow-y: auto;
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        table {
+            margin: 0 auto;
+            border-collapse: collapse;
+            width: 100%;
+            color: white;
+        }
+
+        table, th, td {
+            border: 1px solid white;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: center;
+        }
+
+        th {
+            background-color: rgb(60, 2, 2);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        #last-updated {
+            font-size: 0.8em;
+            color: lightgrey;
+            margin-left: 15px;
+        }
+
+        .stats {
+            margin-top: 20px;
+            text-align: left;
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        #export-csv-btn {
+            margin-left: 20px;
+            font-size: 0.8em;
+            padding: 5px 10px;
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header>
+    <img src="{{ url_for('static', filename='images/tamu.png') }}" alt="Company Logo">
+    <h1>Gas Monitoring System</h1>
+</header>
+
+<nav>
+    <a href="#" class="nav-link" data-tab="welcome">Welcome</a>
+    <a href="#" class="nav-link" data-tab="live-data">Live Data</a>
+    <a href="#" class="nav-link" data-tab="contact">Contact Information</a>
+    <a href="#" class="nav-link" data-tab="location">Location Information</a>
+    <a href="#" class="nav-link" data-tab="visualization">Data Visualization</a>
+</nav>
+
+<div id="welcome" class="tab-content active">
+    <h1>Welcome to the Gas Monitoring System for Animal Farms</h1>
+    <p>We are a group of 4 undergraduate Electrical Engineering Students at Texas A&M University...</p>
+    <img src="{{ url_for('static', filename='images/farm.png') }}" alt="Farm Image" style="width: 50%; max-width: 500px; height: auto;">
+</div>
+
+<div id="live-data" class="tab-content">
+    <h1>Live Sensor Data <span id="last-updated"></span> <button id="export-csv-btn">Export to CSV</button></h1>
+
+    <div id="sensor-stats">
+        <h2>Sensor Statistics (Last 30 Minutes)</h2>
+        <div>
+            <h3>Temperature (°C)</h3>
+            <p>Average: <span id="temperature-avg"></span>, Min: <span id="temperature-min"></span>, Max: <span id="temperature-max"></span></p>
+
+            <h3>Humidity (%)</h3>
+            <p>Average: <span id="humidity-avg"></span>, Min: <span id="humidity-min"></span>, Max: <span id="humidity-max"></span></p>
+
+            <h3>CO₂ (ppm)</h3>
+            <p>Average: <span id="co2-avg"></span>, Min: <span id="co2-min"></span>, Max: <span id="co2-max"></span></p>
+            
+            <h3>NH₃ (ppm)</h3>
+            <p>Average: <span id="nh3-avg"></span>, Min: <span id="nh3-min"></span>, Max: <span id="nh3-max"></span></p>
+
+            <h3>H₂S (ppm)</h3>
+            <p>Average: <span id="h2s-avg"></span>, Min: <span id="h2s-min"></span>, Max: <span id="h2s-max"></span></p>
+
+            <h3>CH₄ (ppm)</h3>
+            <p>Average: <span id="ch4-avg"></span>, Min: <span id="ch4-min"></span>, Max: <span id="ch4-max"></span></p>
+
+        </div>
+    </div>
+
+    <div id="data-table-container">
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Temperature (°F)</th>
+                <th>Humidity (%)</th>
+                <th>CO2 (ppm)</th>
+                <th>NH3 (ppm)</th>
+                <th>H2S (ppm)</th>
+                <th>CH4 (ppm)</th>
+                <th>Timestamp</th>
+            </tr>
+            </thead>
+            <tbody id="data-table"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="contact" class="tab-content">
+    <h1>Contact Information</h1>
+    <p>For any inquiries, please contact us at:...</p>
+    <p>Tanmay Sarkar: tanmaysarkar@tamu.edu</p>
+    <p>Joaquin Salas: jsalas2002@tamu.edu</p>
+    <p>Blake Schwartzkopf: blaketx02@tamu.edu</p>
+    <p>Matthew Owen: mowen@tamu.edu</p>
+</div>
+
+<div id="location" class="tab-content">
+    <h1>Location Information</h1>
+    <p>Currently, we have one active monitor in College Station, TX.</p>
+</div>
+
+<div id="visualization" class="tab-content">
+    <h1>Data Visualization</h1>
+    <canvas id="temperatureChart"></canvas>
+    <canvas id="humidityChart"></canvas>
+    <canvas id="co2Chart"></canvas>
+    <canvas id="nh3Chart"></canvas>
+    <canvas id="h2sChart"></canvas>
+    <canvas id="ch4Chart"></canvas>
+</div>
+
+<script>
+    const navLinks = document.querySelectorAll('.nav-link');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetTab = e.target.getAttribute('data-tab');
+            tabContents.forEach(content => content.classList.remove('active'));
+            document.getElementById(targetTab).classList.add('active');
+            if (targetTab === 'live-data') fetchDataAndPopulateTable();
+            if (targetTab === 'visualization') fetchDataAndVisualize();
+        });
+    });
+
+    function fetchDataAndPopulateTable() {
+        fetch('/get_sensor_data')
+        .then(response => response.json())
+        .then(response => {
+            const dataTable = document.getElementById('data-table');
+            dataTable.innerHTML = '';
+
+            if (!response.data || response.data.length === 0) return;
+
+            // Populate sensor readings table
+            response.data.forEach(row => {
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td>${row.id}</td>
+                    <td>${row.temperature ?? 'N/A'}</td>
+                    <td>${row.humidity ?? 'N/A'}</td>
+                    <td>${row.CO2 ?? 'N/A'}</td>
+                    <td>${row.NH3 ?? 'N/A'}</td>
+                    <td>${row.H2S ?? 'N/A'}</td>
+                    <td>${row.CH4 ?? 'N/A'}</td>
+                    <td>${row.timestamp}</td>
+                `;
+                dataTable.appendChild(newRow);
+            });
+
+            // Populate statistics
+            const stats = response.stats;
+            document.getElementById('temperature-avg').textContent = stats.temperature.average;
+            document.getElementById('temperature-min').textContent = stats.temperature.min;
+            document.getElementById('temperature-max').textContent = stats.temperature.max;
+
+            document.getElementById('humidity-avg').textContent = stats.humidity.average;
+            document.getElementById('humidity-min').textContent = stats.humidity.min;
+            document.getElementById('humidity-max').textContent = stats.humidity.max;
+
+            document.getElementById('co2-avg').textContent = stats.CO2.average;
+            document.getElementById('co2-min').textContent = stats.CO2.min;
+            document.getElementById('co2-max').textContent = stats.CO2.max;
+
+            document.getElementById('nh3-avg').textContent = stats.NH3.average;
+            document.getElementById('nh3-min').textContent = stats.NH3.min;
+            document.getElementById('nh3-max').textContent = stats.NH3.max;
+
+            document.getElementById('h2s-avg').textContent = stats.H2S.average;
+            document.getElementById('h2s-min').textContent = stats.H2S.min;
+            document.getElementById('h2s-max').textContent = stats.H2S.max;
+
+            document.getElementById('ch4-avg').textContent = stats.CH4.average;
+            document.getElementById('ch4-min').textContent = stats.CH4.min;
+            document.getElementById('ch4-max').textContent = stats.CH4.max;
+        })
+        .catch(error => console.error('Error fetching data:', error));
+}
+
+function fetchDataAndVisualize() {
+        fetch('/get_visualization_data')
+            .then(response => response.json())
+            .then(data => {
+                const timestamps = data.map(row => row.timestamp);
+
+                function buildDataset(label, field) {
+    const rawData = data.map(row => row[field]);
+
+    // Outlier filtering using IQR
+    const sorted = [...rawData].sort((a, b) => a - b);
+    const q1 = sorted[Math.floor(sorted.length * 0.25)];
+    const q3 = sorted[Math.floor(sorted.length * 0.75)];
+    const iqr = q3 - q1;
+    const lowerBound = q1 - 1.5 * iqr;
+    const upperBound = q3 + 1.5 * iqr;
+
+    const filteredData = rawData.map(val =>
+        (val >= lowerBound && val <= upperBound) ? val : null
+    );
+
+    return {
+        label: label,
+        data: filteredData,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.8)',
+        backgroundColor: 'rgba(255,255,255,0.3)',
+        fill: false,
+        tension: 0.2
+    };
+}
+
+
+                const chartConfigs = [
+                    { id: 'temperatureChart', label: 'Temperature (°C)', field: 'temperature' },
+                    { id: 'humidityChart', label: 'Humidity (%)', field: 'humidity' },
+                    { id: 'co2Chart', label: 'CO₂ (ppm)', field: 'CO2' },
+                    { id: 'nh3Chart', label: 'NH₃ (ppm)', field: 'NH3' },
+                    { id: 'h2sChart', label: 'H₂S (ppm)', field: 'H2S' },
+                    { id: 'ch4Chart', label: 'CH₄ (ppm)', field: 'CH4' }
+                ];
+
+                chartConfigs.forEach(cfg => {
+                    const ctx = document.getElementById(cfg.id).getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: timestamps,
+                            datasets: [buildDataset(cfg.label, cfg.field)]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: cfg.label + ' Over Time'
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    ticks: {
+                                        maxTicksLimit: 10
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+            })
+            .catch(error => console.error('Error fetching visualization data:', error));
+    }
+
+    document.getElementById('export-csv-btn').addEventListener('click', () => {
+        window.location.href = '/export_csv';
+    });
+
+    setInterval(fetchDataAndPopulateTable, 5000);
+    document.addEventListener('DOMContentLoaded', fetchDataAndPopulateTable);
+</script>
+</body>
+</html>
