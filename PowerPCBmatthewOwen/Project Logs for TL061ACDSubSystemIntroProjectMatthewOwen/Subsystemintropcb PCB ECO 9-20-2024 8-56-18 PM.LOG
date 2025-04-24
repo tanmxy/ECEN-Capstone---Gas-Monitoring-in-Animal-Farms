@@ -1,0 +1,14 @@
+Add Pin To Net: Unknown Pin: Pin *-2
+Add Pin To Net: Unknown Pin: Pin *-3
+Add Pin To Net: Unknown Pin: Pin *-4
+Add Pin To Net: Unknown Pin: Pin *-6
+Add Pin To Net: Unknown Pin: Pin Rf-1
+Add Pin To Net: Unknown Pin: Pin Rf-2
+Add Pin To Net: Unknown Pin: Pin RG-1
+Add Pin To Net: Unknown Pin: Pin RG-2
+Add Pin To Net: Unknown Pin: Pin RIN-2
+Added Net: Name=NetRIN_1
+Add Class Member: Failed to add class member : Component * TL061ACD
+Add Class Member: Failed to add class member : Component Rf Resistor
+Add Class Member: Failed to add class member : Component RG Resistor
+Add Class Member: Failed to add class member : Component RIN Resistor

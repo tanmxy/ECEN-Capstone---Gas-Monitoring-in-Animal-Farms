@@ -1,0 +1,8 @@
+Added Net: Name=GND
+Added Net: Name=Net*_2
+Added Net: Name=Net*_3
+Added Net: Name=Net*_4
+Added Net: Name=Net*_6
+Added Net: Name=NetR?_1
+Added Class: Name=Subsytemintrosychematic
+Added Rule: Name=Schematic Supply Nets

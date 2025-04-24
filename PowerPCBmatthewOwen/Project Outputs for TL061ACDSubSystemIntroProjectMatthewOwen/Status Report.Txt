@@ -1,0 +1,12 @@
+Output: NC Drill Files
+Type  : NC Drill
+From  : Project [TL061ACDSubSystemIntroProjectMatthewOwen.PrjPcb]
+   Generated File[FinalSUbsystemintroDesign.TXT]
+   Generated File[FinalSUbsystemintroDesign.LDP]
+   Generated File[FinalSUbsystemintroDesign.DRR]
+
+
+Files Generated   : 3
+Documents Printed : 0
+
+Finished Output Generation At 8:51:59 PM On 10/3/2024

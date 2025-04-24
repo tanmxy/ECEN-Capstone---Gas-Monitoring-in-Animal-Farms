@@ -1,0 +1,20 @@
+Added Component: Designator=OpAmpSubSys(PCBComponent_1)
+Add Pin To Net: Unknown Pin: Pin RG-1
+Add Pin To Net: Unknown Pin: Pin RIN-1
+Add Pin To Net: Unknown Pin: Pin V?-1
+Add Pin To Net: Unknown Pin: Pin V?-2
+Added Pin To Net: NetName=-5 Pin=OpAmpSubSys-4
+Added Net: Name=-5
+Added Pin To Net: NetName=NetOpAmpSubSys_2 Pin=OpAmpSubSys-2
+Added Net: Name=NetOpAmpSubSys_2
+Added Pin To Net: NetName=NetOpAmpSubSys_3 Pin=OpAmpSubSys-3
+Added Net: Name=NetOpAmpSubSys_3
+Added Pin To Net: NetName=NetOpAmpSubSys_6 Pin=OpAmpSubSys-6
+Added Net: Name=NetOpAmpSubSys_6
+Added Member To Class: ClassName=Subsytemintrosychematic Member=Component OpAmpSubSys Component_1
+Add Class Member: Failed to add class member : Component Rf Resistor
+Add Class Member: Failed to add class member : Component RG Resistor
+Add Class Member: Failed to add class member : Component RIN Resistor
+Add Class Member: Failed to add class member : Component V? DC 5
+Added Rule: Name=Schematic Supply Nets_1
+Added Rule: Name=Schematic Supply Nets_2

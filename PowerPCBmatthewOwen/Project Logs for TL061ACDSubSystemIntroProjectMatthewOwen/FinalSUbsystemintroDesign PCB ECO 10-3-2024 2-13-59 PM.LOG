@@ -1,0 +1,9 @@
+Change Component Footprint: Designator=R1 Old Footprint=FP-RC1005-IPC_A New Footprint=FP-RC1005-IPC_A
+Change Component Footprint: Designator=R2 Old Footprint=FP-RC1005-IPC_A New Footprint=FP-RC1005-IPC_A
+Change Component Footprint: Designator=R3 Old Footprint=FP-RC1005-IPC_A New Footprint=FP-RC1005-IPC_A
+Change Net Name : Old Net Name=Net*_7 New Net Name=VCC
+Change Net Name : Old Net Name=NetGND,VCC+,VCC-_1 New Net Name=GND
+Change Class Name : Old Net Name=Subsytemintrosychematic New Net Name=Subsytemintroductionsychematic
+Added Member To Class: ClassName=Subsytemintroductionsychematic Member=Component GND,VCC+,VCC- 61900319521
+Added Rule: Name=Schematic Supply Nets
+Added Rule: Name=Schematic Supply Nets_1
